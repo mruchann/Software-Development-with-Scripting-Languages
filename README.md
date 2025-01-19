@@ -10,5 +10,3 @@
 ### Architecture
 
 We have provided a `test.py` file that includes a sample run of our code. The graph that it represents looks like this:
-
-![Example Architecture](./images/example.jpg)
