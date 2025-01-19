@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block content %}
+   <h2>Attached Graphs</h2>
+    <table id="attachedGraphsTable" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+            <tr style="background-color: #f4f4f4; text-align: left;">
+                <th style="padding: 8px; border: 1px solid #ddd;">Graph Name</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Detached Graphs</h2>
+    <table id="detachedGraphsTable" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background-color: #f4f4f4; text-align: left;">
+                <th style="padding: 8px; border: 1px solid #ddd;">Graph Name</th>
+                <th style="padding: 8px; border: 1px solid #ddd;">Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+{{ attached_graphs|json_script:"attached-graphs" }}
+{{ detached_graphs|json_script:"detached-graphs" }}
+
+    <script>
+        let attachedGraphs = JSON.parse(document.getElementById('attached-graphs').textContent);
+        let detachedGraphs = JSON.parse(document.getElementById('detached-graphs').textContent);
+
+        $(document).ready(function() {
+            function populateTable(tableId, data, actionTemplate) {
+                $(tableId + ' tbody').empty();
+                const tableBody = $(tableId + ' tbody');
+                data.forEach(function(graph) {
+                    var row = `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${graph.name}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">
+                                <div style="display: flex; gap: 10px;">
+                                    ${actionTemplate(graph.id)}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.append(row);
+                });
+            }
+
+            function attachedGraphActions(id) {
+                return `
+                    <form method="get" action="/detach_graph/${id}/">
+                        <button type="submit" style="padding: 6px 12px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Detach</button>
+                    </form>
+                    <form method="get" action="/view_graph/${id}/">
+                        <button type="submit" style="padding: 6px 12px; background-color: #3F3F3F; color: white; border: none; border-radius: 4px; cursor: pointer;">View</button>
+                    </form>
+                    <form method="get" action="/delete_graph/${id}/">
+                        <button type="submit" style="padding: 6px 12px; background-color: #BA2121; color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+                    </form>
+                `;
+            }
+
+            function detachedGraphActions(id) {
+                return `
+                    <form method="get" action="/attach_graph/${id}/">
+                        <button type="submit" style="padding: 6px 12px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Attach</button>
+                    </form>
+                `;
+            }
+
+            // Populate the tables
+            populateTable('#attachedGraphsTable', attachedGraphs, attachedGraphActions);
+            populateTable('#detachedGraphsTable', detachedGraphs, detachedGraphActions);
+
+            let ws;
+
+            function connect() {
+                ws = new WebSocket('ws://127.0.0.1:8000/ws/listgraphs/');
+
+                ws.onmessage = function(e) {
+                    const data = JSON.parse(e.data);
+                    console.log(data);
+                    const graph_name = data.name;
+                    const graph_id = data.id;
+
+                    if (data.type === "create_graph") {
+                        detachedGraphs.push({
+                            name: graph_name,
+                            id: graph_id,
+                        })
+                        populateTable('#detachedGraphsTable', detachedGraphs, detachedGraphActions);
+                    } else if (data.type === "delete_graph") {
+                        const idx = attachedGraphs.findIndex(attachedGraph => attachedGraph.id === graph_id);
+                        console.log("idx:", idx);
+                        if (idx !== -1) {
+                            attachedGraphs.splice(idx, 1);
+                            populateTable('#attachedGraphsTable', attachedGraphs, attachedGraphActions);
+                        }
+                        const idx2 = detachedGraphs.findIndex(detachedGraph => detachedGraph.id === graph_id);
+                        console.log("idx2", idx2);
+                        if (idx2 !== -1) {
+                            detachedGraphs.splice(idx2, 1);
+                            populateTable('#detachedGraphsTable', detachedGraphs, detachedGraphActions);
+                        }
+                    }
+                };
+
+                ws.onclose = function(e) {
+                    console.error('Websocket closed unexpectedly', e);
+                    setTimeout(() => {
+                        connect();
+                    }, 2000);
+                };
+            }
+
+            connect();
+        });
+    </script>
+{% endblock %}

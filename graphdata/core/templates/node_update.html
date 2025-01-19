@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Update Node</h1>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div>
+        <h3>Update Node Fields</h3>
+        {{ field_update_form.as_p }}
+        <button type="submit" name="submit_field_update_form">Submit</button>
+    </div>
+
+</form>
+
+    <br>
+    <br>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div>
+        <h3>Connect Node</h3>
+        {{ connect_form.as_p }}
+        <button type="submit" name="submit_connect_form">Submit</button>
+    </div>
+
+</form>
+
+    <br>
+    <br>
+
+<form method="post">
+    {% csrf_token %}
+    <div>
+        <h3>Disconnect Node</h3>
+        {{ disconnect_form.as_p }}
+        <button type="submit" name="submit_disconnect_form">Submit</button>
+    </div>
+
+</form>
+
+    <br>
+    <br>
+
+<form method="post">
+    {% csrf_token %}
+    <div>
+        <h3>Delete Node</h3>
+        {{ delete_form.as_p }}
+        <button type="submit" name="submit_delete_form">Submit</button>
+    </div>
+
+</form>
+
+{% endblock %}

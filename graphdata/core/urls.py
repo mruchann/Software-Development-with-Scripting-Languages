@@ -1,0 +1,35 @@
+from django.urls import path
+from .views import *
+
+urlpatterns = [
+    path('', home, name='home'),
+    path('login/', ScriptLoginView.as_view(), name='login'),
+    path('logout/', ScriptLogoutView.as_view(), name='logout'),
+    path('sign_up/', sign_up, name='signup'),
+    path('contact/', contact, name='contact'),
+    path('about/', about, name='about'),
+    path('graphs/', graphs, name='graphs'),
+    path('attach_graph/<uuid:graph_id>/', attach_graph, name='attach_graph'),
+    path('detach_graph/<uuid:graph_id>/', detach_graph, name='detach_graph'),
+    path('view_graph/<uuid:graph_id>/', view_graph, name='view_graph'),
+    path('delete_graph/<uuid:graph_id>/', delete_graph, name='delete_graph'),
+    path('create_graph/', create_graph, name='create_graph'),
+    path('create_column_adder_node/<uuid:graph_id>/', create_column_adder_node, name='create_column_adder_node'),
+    path('create_csv_importer_node/<uuid:graph_id>/', create_csv_importer_node, name='create_csv_importer_node'),
+    path('create_duplicator_node/<uuid:graph_id>/', create_duplicator_node, name='create_duplicator_node'),
+    path('create_exporter_node/<uuid:graph_id>/', create_exporter_node, name='create_exporter_node'),
+    path('create_filterer_node/<uuid:graph_id>/', create_filterer_node, name='create_filterer_node'),
+    path('create_joiner_node/<uuid:graph_id>/', create_joiner_node, name='create_joiner_node'),
+    path('create_regex_importer_node/<uuid:graph_id>/', create_regex_importer_node, name='create_regex_importer_node'),
+    path('create_selector_node/<uuid:graph_id>/', create_selector_node, name='create_selector_node'),
+    path('create_sorter_node/<uuid:graph_id>/', create_sorter_node, name='create_sorter_node'),
+    path('create_viewer_node/<uuid:graph_id>/', create_viewer_node, name='create_viewer_node'),
+    path('create_chart_node/<uuid:graph_id>/', create_chart_node, name='create_chart_node'),
+    path('delete_node/<uuid:graph_id>/', delete_node, name='delete_node'),
+    path('connect_nodes/<uuid:graph_id>/', connect_nodes, name='connect_nodes'),
+    path('disconnect_nodes/<uuid:graph_id>/', disconnect_nodes, name='disconnect_nodes'),
+    path('viewer/<uuid:graph_id>/<uuid:node_id>/', viewer_table, name='viewer_node'),
+    path('chart/<uuid:graph_id>/<uuid:node_id>/', chart_table, name='chart_table'),
+    path('update_node/<uuid:graph_id>/', update_node, name='update_node'),
+]
+

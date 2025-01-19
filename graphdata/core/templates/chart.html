@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Output Data</h1>
+<div id="cont" style="text-align: center; margin-top: 20px;">
+</div>
+
+{{ svg_chart|json_script:"svg-chart" }}
+
+<script type="text/javascript">
+
+    // path('viewer/<uuid:graph_id>/<uuid:node_id>/', viewer_table, name='viewer_node'),
+
+    const gid = "{{ graph_id|escapejs }}";
+    const nid = "{{ node_id|escapejs}}";
+    let svgChart = JSON.parse(document.getElementById('svg-chart').textContent);
+    console.log("chart is:", svgChart);
+
+    let ws;
+
+    function connect() {
+        ws = new WebSocket(`ws://127.0.0.1:8000/ws/${gid}/`);
+
+        ws.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            for (const affected_node of data.affected_nodes) {
+                if (affected_node.id === nid) {
+                    svgChart = affected_node.output_data;
+                    break;
+                }
+            }
+            updateSvg();
+        };
+
+        ws.onclose = function(e) {
+            console.error('Websocket closed unexpectedly', e);
+            setTimeout(() => {
+                connect();
+            }, 2000);
+        };
+    }
+
+    function updateSvg() {
+        if (svgChart) {
+            $('#cont').html(svgChart);
+        } else {
+            $('#cont').html('<p>No SVG chart available.</p>');
+        }
+    }
+
+    updateSvg();
+    connect();
+
+</script>
+
+{% endblock %}

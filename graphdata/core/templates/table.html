@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Output Data</h1>
+    <table id="data-table" style="border-collapse: collapse; width: 100%;" border="1">
+    </table>
+
+{{ data|json_script:"data-json" }}
+
+<script type="text/javascript">
+
+    // path('viewer/<uuid:graph_id>/<uuid:node_id>/', viewer_table, name='viewer_node'),
+
+    const gid = "{{ graph_id|escapejs }}";
+    const nid = "{{ node_id|escapejs}}";
+    let data = JSON.parse(document.getElementById('data-json').textContent);
+    console.log("data is:", data);
+
+    let ws;
+
+    function connect() {
+        ws = new WebSocket(`ws://127.0.0.1:8000/ws/${gid}/`);
+
+        ws.onmessage = function(e) {
+            const msg = JSON.parse(e.data);
+            for (const affected_node of msg.affected_nodes) {
+                if (affected_node.id === nid) {
+                    data = affected_node.output_data;
+                    break;
+                }
+            }
+            updateTable();
+        };
+
+        ws.onclose = function(e) {
+            console.error('Websocket closed unexpectedly', e);
+            setTimeout(() => {
+                connect();
+            }, 2000);
+        };
+    }
+
+    function updateTable() {
+        const data_table = $('#data-table');
+
+        data_table.empty();
+
+        const headers = Object.keys(data[0]);
+        const headerRow = $('<tr></tr>');
+        headers.forEach(function(header) {
+            headerRow.append('<th>' + header + '</th>');
+        });
+
+        data_table.append(headerRow);
+
+        $('#data-table th').css({
+            "border": "1px solid black",
+            "padding": "8px",
+        })
+
+        data.forEach(function(row) {
+            var tableRow = $('<tr></tr>');
+            headers.forEach(function(header) {
+                tableRow.append('<td>' + row[header] + '</td>');
+            });
+            $('#data-table').append(tableRow);
+        });
+
+        $("#data-table td").css({
+            "border": "1px solid black",
+            "padding": "8px",
+        })
+    }
+
+    updateTable();
+    connect();
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; gap: 20px;">
+    <div style="display: flex; padding: 10px;">
+        <div id="toolbox" style="width: 100%; margin: 0 auto;
+                width: 10%;
+                max-width: 1200px;
+                padding: 20px;
+                background-color: gray;
+                border: 1px solid black;"></div>
+
+        <div id="container" style="width: 100%; margin: 0 auto;
+                max-width: 1200px;
+                padding: 20px;
+                background-color: lightblue;
+                border: 1px solid black;"></div>
+
+        <textarea id="notificationArea" rows="10" cols="80" readonly></textarea>
+
+        <script type="text/javascript">
+
+            let mouseUpPosition = {};
+            document.addEventListener('mouseup', function(evt) {
+                mouseUpPosition = { x: evt.clientX, y: evt.clientY };
+
+                console.log(`Mouse up: x: ${mouseUpPosition.x}, y: ${mouseUpPosition.y}`);
+            });
+
+            let wasDragging = false;
+            let mouseDownPosition = {};
+
+            let qs = '';
+
+            const gid = "{{ graph_id }}";
+            var nodes = JSON.parse('{{ nodes | escapejs }}');
+
+            let ws;
+
+            function connect() {
+                ws = new WebSocket(`ws://127.0.0.1:8000/ws/${gid}/`);
+
+                ws.onmessage = function(e) {
+                    const data = JSON.parse(e.data);
+                    console.log(data);
+                    if (data.graph_deleted) {
+                        window.location.href = '/graphs';
+                        return;
+                    }
+
+                    if (data.notif) {
+                        $('#notificationArea').append(data.notif);
+                    }
+
+                    if (data.node_deleted) {
+                        const idx = nodes.findIndex(node => node.id === data.node_deleted);
+                        if (idx !== -1) {
+                            nodes.splice(idx, 1);
+                        }
+                    }
+
+                    const new_nodes = [];
+                    let is_a_new_node = true;
+                    for (const node of nodes) {
+                        let node_affected = false;
+                        for (const affected_node of data.affected_nodes) {
+                            if (affected_node.id === node.id) {
+                                new_nodes.push(affected_node);
+                                node_affected = true;
+                                is_a_new_node = false;
+                                break;
+                            }
+                        }
+                        if (!node_affected) {
+                            new_nodes.push(node);
+                        }
+                    }
+                    if (is_a_new_node) {
+                        new_nodes.push(...data.affected_nodes);
+                    }
+                    nodes = new_nodes;
+                    console.log("nodes", nodes);
+                    draw();
+                };
+
+                ws.onclose = function(e) {
+                    console.error('Websocket closed unexpectedly', e);
+                    setTimeout(() => {
+                        connect();
+                    }, 2000);
+                };
+            }
+
+            draw();
+            connect();
+
+            function draw() {
+                var namespace = joint.shapes;
+
+                var jointGraph = new joint.dia.Graph({}, { cellNamespace: namespace });
+
+                var paper = new joint.dia.Paper({
+                    el: document.getElementById('container'),
+                    model: jointGraph,
+                    width: 1600,
+                    height: 1000,
+                    gridSize: 1,
+                    cellViewNamespace: namespace,
+                    elementView: joint.dia.ElementView.extend({
+                        events: {
+                            'mousedown': 'onMouseDown',
+                            'mouseup': 'onMouseUp',
+                            'click a': 'onAnchorClick',  // Handle clicks on anchor tags
+                        },
+
+                        onAnchorClick: function(evt) {
+                            console.log("Anchor Click");
+                            if (wasDragging) {
+                                evt.preventDefault();
+                                console.log('Anchor click disabled during event');
+                            }
+                        },
+
+                        onMouseDown: function (evt) {
+                            mouseDownPosition =  { x: evt.clientX, y: evt.clientY };
+                            wasDragging = false;
+                            console.log('Mouse down, wasDragging:', wasDragging);
+                            console.log(`Mouse down, x: ${evt.clientX}, y: ${evt.clientY}`);
+                        },
+
+                        onMouseUp: function (evt) {
+                            mouseUpPosition = { x: evt.clientX, y: evt.clientY };
+                            wasDragging = !(mouseDownPosition.x === evt.clientX && mouseDownPosition.y === evt.clientY);
+                            console.log('Mouse up, wasDragging:', wasDragging);
+                            console.log(`Mouse up, x: ${evt.clientX}, y: ${evt.clientY}`);
+                        },
+                    }),
+                });
+
+
+                var stencil = new joint.ui.Stencil({
+                    paper: paper,
+                    width: 200,
+                    height: 800,
+                });
+
+                $('#toolbox').append(stencil.render().el);
+
+                joint.shapes.standard.Rectangle.define('custom.HyperlinkRectangle', {
+                    attrs: {
+                        link: {
+                            xlinkShow: 'new',
+                            cursor: 'pointer',
+                        },
+                        body: {
+                            fill: '#b3d9ff',
+                            stroke: '#000000',
+                        },
+                        label: {
+                            fill: '#00264d',
+                        }
+                    }
+                }, {
+                    markup: [{
+                        tagName: 'a',
+                        selector: 'link',
+                        children: [
+                            {
+                                tagName: 'rect',
+                                selector: 'body'
+                            },
+                            {
+                                tagName: 'text',
+                                selector: 'label'
+                            }
+                        ]
+                    }]
+                });
+
+                const types = [
+                    { name: 'Viewer', link: `/create_viewer_node/${gid}/` },
+                    { name: 'Sorter', link: `/create_sorter_node/${gid}/` },
+                    { name: 'Selector', link: `/create_selector_node/${gid}/` },
+                    { name: 'Joiner', link: `/create_joiner_node/${gid}/` },
+                    { name: 'Regex Importer', link: `/create_regex_importer_node/${gid}/` },
+                    { name: 'CSV Importer', link: `/create_csv_importer_node/${gid}/` },
+                    { name: 'Column Adder', link: `/create_column_adder_node/${gid}/` },
+                    { name: 'Duplicator', link: `/create_duplicator_node/${gid}/` },
+                    { name: 'Exporter', link: `/create_exporter_node/${gid}/` },
+                    { name: 'Filterer', link: `/create_filterer_node/${gid}/` },
+                    { name: 'Chart', link: `/create_chart_node/${gid}/` },
+                ];
+
+                let j = 10;
+                const rectangles = types.map(type => {
+                    console.log(j);
+                    var r = new joint.shapes.custom.HyperlinkRectangle();
+                    r.position(0, j);
+                    r.resize(100, 40);
+
+                    r.attr({
+                        link: {
+                            xlinkHref: type.link,
+                            target: '_self',
+                        },
+                        body: {
+                            fill: 'black',
+                            strokeWidth: 0
+                        },
+                        label: {
+                            text: type.name,
+                            fill: 'white'
+                        }
+                    });
+
+                    j += 75;
+
+                    return r;
+                });
+
+                stencil.load(rectangles);
+
+                let nodeToRectangle = new Map();
+
+                nodes.forEach(node => {
+                    var rect = new joint.shapes.custom.HyperlinkRectangle();
+                    rect.position(node.x, node.y);
+                    rect.resize(100, 40);
+
+                    rect.attr({
+                        link: {
+                            xlinkHref: `/update_node/${node.associated_graph}/`,
+                            target: '_self',
+                        },
+                        body: {
+                            fill: node.color,
+                            strokeWidth: 0
+                        },
+                        label: {
+                            text: node.type,
+                            fill: 'white'
+                        }
+                    });
+
+                    rect.addTo(jointGraph);
+
+                    var infoButton = new joint.elementTools.Button({
+                        markup: [{
+                            tagName: 'circle',
+                            selector: 'button',
+                            attributes: {
+                                'r': 7,
+                                'fill': '#001DFF',
+                                'cursor': 'pointer'
+                            }
+                        }, {
+                            tagName: 'path',
+                            selector: 'icon',
+                            attributes: {
+                                'd': 'M -2 4 2 4 M 0 3 0 0 M -2 -1 1 -1 M -1 -4 1 -4',
+                                'fill': 'none',
+                                'stroke': '#FFFFFF',
+                                'stroke-width': 2,
+                                'pointer-events': 'none'
+                            }
+                        }],
+                        x: '100%',
+                        y: '100%',
+                        offset: {
+                            x: 0,
+                            y: 0
+                        },
+                        rotate: true,
+                        action: function (evt) {
+                            if (node.type === 'Viewer') {
+                                window.location.href = `/viewer/${node.associated_graph}/${node.id}`;
+                            }
+                            else if (node.type === 'Chart') {
+                                window.location.href = `/chart/${node.associated_graph}/${node.id}`;
+                            }
+                            else {
+                                alert(`Node Type: ${node.type}\nNode ID: ${node.id}\nInput Ports: ${JSON.stringify(node.inputs)}\nOutput Ports: ${JSON.stringify(node.outputs)}\nX: ${JSON.stringify(node.x)}\nY: ${JSON.stringify(node.y)}`);
+                            }
+                        }
+                    });
+
+                    var toolsView = new joint.dia.ToolsView({
+                        tools: [infoButton]
+                    });
+
+                    var elementView = rect.findView(paper);
+                    elementView.addTools(toolsView);
+
+                    nodeToRectangle.set(node, rect);
+                });
+
+                // node.outputs : output port name -> { child input port name -> child_id }
+                nodeToRectangle.forEach(function (rect, node) {
+                    for (const [_, child_map] of Object.entries(node.outputs)) {
+                        for (const [_, node_id] of Object.entries(child_map)) {
+                            var to = nodes.find(node => node.id === node_id);
+                            var link = new joint.shapes.standard.Link({
+                                router: { name: 'manhattan' },
+                            });
+
+                            link.source(rect);
+                            link.target(nodeToRectangle.get(to));
+                            link.addTo(jointGraph); // Add link to the graph model
+                        }
+                    }
+                });
+
+            }
+
+        </script>
+
+    </div>
+
+</div>
+
+
+{% endblock %}
